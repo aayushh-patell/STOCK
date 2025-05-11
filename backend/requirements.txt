@@ -1,0 +1,11 @@
+beautifulsoup4
+lxml
+jupyterlab
+matplotlib
+pandas
+yfinance
+flask
+scikit-learn
+numpy
+fastapi
+uvicorn
