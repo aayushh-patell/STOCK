@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senator Trading Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .purchase {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .sale {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .tab:hover {
+            background: #f8f9fa;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Senator Trading Dashboard</h1>
+            <p>Analysis of U.S. Senator Stock Trading Activity</p>
+        </div>
+        
+        {% if data_loaded %}
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_transactions }}</div>
+                <div class="stat-label">Total Transactions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ unique_senators }}</div>
+                <div class="stat-label">Unique Senators</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ unique_stocks }}</div>
+                <div class="stat-label">Unique Stocks</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>Top Senators by Trading Activity</h2>
+                <div class="chart-container">
+                    <canvas id="senatorsChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Most Traded Stocks</h2>
+                <div class="chart-container">
+                    <canvas id="stocksChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Recent Transactions</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Senator</th>
+                                <th>Stock</th>
+                                <th>Asset</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tx in recent_transactions %}
+                            <tr>
+                                <td>{{ tx.tx_date.strftime('%Y-%m-%d') if tx.tx_date else 'N/A' }}</td>
+                                <td>{{ tx.full_name }}</td>
+                                <td><strong>{{ tx.ticker }}</strong></td>
+                                <td>{{ tx.asset_name }}</td>
+                                <td class="{{ 'purchase' if tx.order_type == 'Purchase' else 'sale' }}">
+                                    {{ tx.order_type }}
+                                </td>
+                                <td>{{ tx.tx_amount }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Detailed Data</h2>
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('senators')">Senators</div>
+                    <div class="tab" onclick="showTab('transactions')">Transactions</div>
+                    <div class="tab" onclick="showTab('stocks')">Stocks</div>
+                </div>
+                
+                <div id="senators-tab" class="tab-content active">
+                    <div class="table-container">
+                        <table id="senators-table">
+                            <thead>
+                                <tr>
+                                    <th>Senator</th>
+                                    <th>Total Trades</th>
+                                    <th>Purchases</th>
+                                    <th>First Trade</th>
+                                    <th>Last Trade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="transactions-tab" class="tab-content">
+                    <div class="table-container">
+                        <table id="transactions-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Senator</th>
+                                    <th>Stock</th>
+                                    <th>Asset</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="6" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="stocks-tab" class="tab-content">
+                    <div class="table-container">
+                        <table id="stocks-table">
+                            <thead>
+                                <tr>
+                                    <th>Stock</th>
+                                    <th>Total Trades</th>
+                                    <th>Purchases</th>
+                                    <th>First Trade</th>
+                                    <th>Last Trade</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="loading">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="no-data">
+            <h2>No Data Available</h2>
+            <p>The senator trading data hasn't been loaded yet. Please run the scraping script first.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Charts
+        const senatorsCtx = document.getElementById('senatorsChart');
+        const stocksCtx = document.getElementById('stocksChart');
+        
+        if (senatorsCtx && {{ top_senators | length }} > 0) {
+            new Chart(senatorsCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ top_senators.keys() | list | tojson }},
+                    datasets: [{
+                        label: 'Number of Transactions',
+                        data: {{ top_senators.values() | list | tojson }},
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        if (stocksCtx && {{ top_stocks | length }} > 0) {
+            new Chart(stocksCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ top_stocks.keys() | list | tojson }},
+                    datasets: [{
+                        label: 'Number of Trades',
+                        data: {{ top_stocks.values() | list | tojson }},
+                        backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                        borderColor: 'rgba(118, 75, 162, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+            
+            // Load data for the tab
+            loadTabData(tabName);
+        }
+        
+        // Load data for tabs
+        async function loadTabData(tabName) {
+            try {
+                const response = await axios.get(`/api/${tabName}`);
+                const data = response.data;
+                
+                const table = document.getElementById(tabName + '-table');
+                const tbody = table.querySelector('tbody');
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="no-data">No data available</td></tr>';
+                    return;
+                }
+                
+                let html = '';
+                data.forEach(item => {
+                    html += '<tr>';
+                    if (tabName === 'senators') {
+                        html += `<td>${item.full_name}</td>`;
+                        html += `<td>${item.total_trades}</td>`;
+                        html += `<td>${item.purchases}</td>`;
+                        html += `<td>${item.first_trade || 'N/A'}</td>`;
+                        html += `<td>${item.last_trade || 'N/A'}</td>`;
+                    } else if (tabName === 'transactions') {
+                        html += `<td>${item.tx_date}</td>`;
+                        html += `<td>${item.full_name}</td>`;
+                        html += `<td><strong>${item.ticker}</strong></td>`;
+                        html += `<td>${item.asset_name}</td>`;
+                        html += `<td class="${item.order_type === 'Purchase' ? 'purchase' : 'sale'}">${item.order_type}</td>`;
+                        html += `<td>${item.tx_amount}</td>`;
+                    } else if (tabName === 'stocks') {
+                        html += `<td><strong>${item.ticker}</strong></td>`;
+                        html += `<td>${item.total_trades}</td>`;
+                        html += `<td>${item.purchases}</td>`;
+                        html += `<td>${item.first_trade || 'N/A'}</td>`;
+                        html += `<td>${item.last_trade || 'N/A'}</td>`;
+                    }
+                    html += '</tr>';
+                });
+                
+                tbody.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+        
+        // Load initial data for senators tab
+        if (document.getElementById('senators-tab').classList.contains('active')) {
+            loadTabData('senators');
+        }
+    </script>
+</body>
+</html> 
